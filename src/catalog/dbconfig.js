@@ -1,11 +1,17 @@
  // import Sqlite3 module
  const sqlite3 = require('sqlite3').verbose();
  // create a new Sqlite instance with read-write mode
-const db = new sqlite3.Database('data.db',sqlite3.OPEN_READWRITE,(err)=>{ 
 
-    if(err) 
-    return console.error(err.message);
+ const path = require('path');
+const dbPath = path.join(__dirname, 'data.db');
+
+const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  if (err) {
+    return console.error("❌ Failed to open DB:", err.message);
+  }
+  console.log("✅ Connected to the SQLite database.");
 });
+
 let sql;
  //function to create catalog table
 function createCatalogTable(){                                                    
