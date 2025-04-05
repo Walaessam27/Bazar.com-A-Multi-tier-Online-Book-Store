@@ -1,0 +1,68 @@
+ // import Sqlite3 module
+ const sqlite3 = require('sqlite3').verbose();
+ // create a new Sqlite instance with read-write mode
+const db = new sqlite3.Database('data.db',sqlite3.OPEN_READWRITE,(err)=>{ 
+
+    if(err) 
+    return console.error(err.message);
+});
+let sql;
+ //function to create catalog table
+function createCatalogTable(){                                                    
+   sql = `CREATE TABLE IF NOT EXISTS catalog(ISBN INTEGER PRIMARY KEY,Title,Cost,Topic,Stock)`;
+   db.run(sql)
+}
+
+//function to insert data into the catalog table
+function insertIntoCatalog(title,cost,topic,stock){                           
+   sql =`INSERT INTO catalog (Title,Cost,Topic,Stock) VALUES(?,?,?,?)`
+   db.run(sql,[title,cost,topic,stock],(err)=>{
+    if(err) 
+    return console.error(err.message);
+})
+}
+ //function to search for item
+ function searchTopic(topic, callback){                                                                          
+    sql=`SELECT * FROM catalog where Topic = ?`;
+    db.all(sql,[topic],(err,rows)=>{
+        db.all(sql, [topic], (err, rows) => {
+            if (err) {
+                callback(err, null);
+            } else {
+                callback(null, rows);
+            }
+        });
+    })
+    }  
+ //function to retrieve info about an item 
+ function info(ISBN, callback) {                                                 
+    const sql = `SELECT * FROM catalog WHERE ISBN = ?`;
+    db.all(sql, [ISBN], (err, row) => {
+        if (err) {
+            callback(err, null);
+        } else {
+            callback(null, row);
+        }
+    });
+}
+ //function to update the stock of an item 
+function updateStock(stock,ISBN,callback){                                    
+    sql=`UPDATE catalog SET Stock = ? where ISBN = ?`;
+    db.run(sql,[stock,ISBN],(err)=>{
+
+        if (err) {
+            callback(err, null);
+        } else {
+            console.log("Stock updated successfully");
+        }
+    })
+        
+    }
+    
+    module.exports = {                                                    
+        createCatalogTable,
+        insertIntoCatalog,
+        searchTopic,
+        info,
+        updateStock
+     }
