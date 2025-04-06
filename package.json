@@ -1,12 +1,25 @@
 {
   "name": "project-dos",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Walaessam27/Bazar.com-A-Multi-tier-Online-Book-Store.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Walaessam27/Bazar.com-A-Multi-tier-Online-Book-Store/issues"
+  },
+  "homepage": "https://github.com/Walaessam27/Bazar.com-A-Multi-tier-Online-Book-Store#readme",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "express": "^5.1.0",
+    "sqlite3": "^5.1.7"
+  }
 }
