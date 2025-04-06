@@ -3,7 +3,9 @@
  // create a new Sqlite instance with read-write mode
 
  const path = require('path');
-const dbPath = path.join(__dirname, 'data.db');
+ const dbPath = path.resolve(__dirname, '..', 'data.db');  // go one level up
+ console.log("🧭 Using database at path:", dbPath);
+
 
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
@@ -41,16 +43,19 @@ function insertIntoCatalog(title,cost,topic,stock){
     })
     }  
  //function to retrieve info about an item 
- function info(ISBN, callback) {                                                 
+ function info(ISBN, callback) {
     const sql = `SELECT * FROM catalog WHERE ISBN = ?`;
     db.all(sql, [ISBN], (err, row) => {
         if (err) {
+            console.error("❌ SQL Error in info():", err.message);
             callback(err, null);
         } else {
+            console.log("🔎 Query Result for ISBN", ISBN, ":", row);
             callback(null, row);
         }
     });
 }
+
  //function to update the stock of an item 
 function updateStock(stock,ISBN,callback){                                    
     sql=`UPDATE catalog SET Stock = ? where ISBN = ?`;

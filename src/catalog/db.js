@@ -1,4 +1,4 @@
-const DatabaseConfig = require('./DatabaseConfig');
+const DatabaseConfig = require('./dbconfig');
 
 
 DatabaseConfig.createCatalogTable();
