@@ -40,7 +40,17 @@ app.post('/purchase/:item_number', (req, res) => {
         }
     });
 
-    
+    // Display all orders
+    const getAllOrders = `SELECT * FROM "order"`;
+    db.all(getAllOrders, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching orders:', err.message);
+        } else {
+            console.log('Current orders in table:');
+            rows.forEach((row) => console.log(row));
+        }
+    });
+
     // Fetch item details from catalog server
     http.get(`http://localhost:4000/info/${itemNo}`, (catalogRes) => {
         let data = '';
@@ -82,3 +92,7 @@ app.post('/purchase/:item_number', (req, res) => {
     });
 });
 
+// Start the order server
+app.listen(port, () => {
+    console.log(`Order service is live on port ${port}`);
+});
