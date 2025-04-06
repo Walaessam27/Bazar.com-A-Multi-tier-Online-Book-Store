@@ -29,6 +29,17 @@ app.get('/info/:item_number', (req, res) => {
     });
 });
 
+// Update stock for an item
+app.put('/update/:item_number', (req, res) => {
+    const stock = req.body.Stock;
+    DatabaseConfig.updateStock(stock, req.params.item_number, (err) => {
+        if (err) {
+            res.status(500).send('Failed to update stock. Database error occurred');
+        } else {
+            res.status(200).send(`Stock for item ${req.params.item_number} updated`);
+        }
+    });
+});
 
 
 
