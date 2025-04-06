@@ -17,7 +17,19 @@ app.get('/search/:topic', (req, res) => {
             res.json(data);
         }
     });
+});// Get item info by item number
+app.get('/info/:item_number', (req, res) => {
+    DatabaseConfig.info(req.params.item_number, (err, data) => {
+        if (err) {
+            res.status(500).send('Unable to retrieve item information. Database error occurred');
+        } else {
+            console.log(`Fetched info for item: ${req.params.item_number}`);
+            res.json(data);
+        }
+    });
 });
+
+
 
 
 
