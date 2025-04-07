@@ -5,7 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'dataorder.db'); // Always create DB in current file's directory
+const dbPath = path.join(__dirname, 'db','dataorder.db'); 
 const db = new sqlite3.Database(dbPath);
 const app = express();
 const port = 5000;
