@@ -3,16 +3,16 @@
  // create a new Sqlite instance with read-write mode
 
  const path = require('path');
- const dbPath = path.join(__dirname, 'data.db');  // go one level up
+ const dbPath = path.join(__dirname,'db', 'data.db'); // new subdirectory
  console.log("🧭 Using database at path:", dbPath);
-
-
-const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-  if (err) {
-    return console.error("❌ Failed to open DB:", err.message);
-  }
-  console.log("✅ Connected to the SQLite database.");
-});
+ 
+ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+   if (err) {
+     return console.error("❌ Failed to open DB:", err.message);
+   }
+   console.log("✅ Connected to the SQLite database.");
+ });
+ 
 
 let sql;
  //function to create catalog table

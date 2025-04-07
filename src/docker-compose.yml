@@ -5,7 +5,7 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./catalog/data.db:/app/data.db
+      - ./catalog/db:/app/db 
     networks:
       - bazar-network
 
@@ -14,7 +14,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./order/dataorder.db:/app/dataorder.db
+      - ./order/db:/app/db 
     depends_on:
       - catalog
     networks:
