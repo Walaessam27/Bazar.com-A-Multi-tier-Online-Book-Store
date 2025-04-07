@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  catalog:
+    build: ./catalog
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./data.db:/app/data.db
+    networks:
+      - bazar-network
+
+  order:
+    build: ./order
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./order/dataorder.db:/app/dataorder.db
+    depends_on:
+      - catalog
+    networks:
+      - bazar-network
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - order
+    networks:
+      - bazar-network
+
+networks:
+  bazar-network:
+    driver: bridge
