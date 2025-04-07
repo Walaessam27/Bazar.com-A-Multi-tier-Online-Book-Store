@@ -16,10 +16,10 @@
     "url": "https://github.com/Walaessam27/Bazar.com-A-Multi-tier-Online-Book-Store/issues"
   },
   "homepage": "https://github.com/Walaessam27/Bazar.com-A-Multi-tier-Online-Book-Store#readme",
-  "description": "",
   "dependencies": {
     "axios": "^1.8.4",
     "express": "^5.1.0",
     "sqlite3": "^5.1.7"
-  }
+  },
+  "description": ""
 }
