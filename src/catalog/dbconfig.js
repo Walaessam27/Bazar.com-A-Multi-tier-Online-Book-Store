@@ -3,7 +3,7 @@
  // create a new Sqlite instance with read-write mode
 
  const path = require('path');
- const dbPath = path.resolve(__dirname, '..', 'data.db');  // go one level up
+ const dbPath = path.join(__dirname, 'data.db');  // go one level up
  console.log("🧭 Using database at path:", dbPath);
 
 

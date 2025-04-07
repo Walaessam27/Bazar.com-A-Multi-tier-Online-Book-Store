@@ -5,7 +5,7 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./data.db:/app/data.db
+      - ./catalog/data.db:/app/data.db
     networks:
       - bazar-network
 
