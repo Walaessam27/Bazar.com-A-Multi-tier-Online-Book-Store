@@ -5,7 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'dataorder.db'); // Always create DB in current file's directory
+const dbPath = path.join(__dirname, 'db','dataorder.db'); 
 const db = new sqlite3.Database(dbPath);
 const app = express();
 const port = 5000;
@@ -52,7 +52,7 @@ app.post('/purchase/:item_number', (req, res) => {
     });
 
     // Fetch item details from catalog server
-    http.get(`http://localhost:4000/info/${itemNo}`, (catalogRes) => {
+    http.get(`http://catalog:4000/info/${itemNo}`, (catalogRes) => {
         let data = '';
 
         catalogRes.on('data', (chunk) => {
@@ -67,7 +67,7 @@ app.post('/purchase/:item_number', (req, res) => {
                     const newStock = item.Stock - 1;
                     const payload = { Stock: newStock };
 
-                    axios.put(`http://localhost:4000/update/${itemNo}`, payload)
+                    axios.put(`http://catalog:4000/update/${itemNo}`, payload)
                         .then(() => {
                             console.log(`Stock updated for item ${itemNo}.`);
                             res.json({ message: 'Item purchased successfully.' });
