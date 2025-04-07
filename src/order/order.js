@@ -52,7 +52,7 @@ app.post('/purchase/:item_number', (req, res) => {
     });
 
     // Fetch item details from catalog server
-    http.get(`http://localhost:4000/info/${itemNo}`, (catalogRes) => {
+    http.get(`http://catalog:4000/info/${itemNo}`, (catalogRes) => {
         let data = '';
 
         catalogRes.on('data', (chunk) => {
@@ -67,7 +67,7 @@ app.post('/purchase/:item_number', (req, res) => {
                     const newStock = item.Stock - 1;
                     const payload = { Stock: newStock };
 
-                    axios.put(`http://localhost:4000/update/${itemNo}`, payload)
+                    axios.put(`http://catalog:4000/update/${itemNo}`, payload)
                         .then(() => {
                             console.log(`Stock updated for item ${itemNo}.`);
                             res.json({ message: 'Item purchased successfully.' });
