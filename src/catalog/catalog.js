@@ -18,17 +18,31 @@ app.get('/search/:topic', (req, res) => {
         }
     });
 });// Get item info by item number
+// app.get('/info/:item_number', (req, res) => {
+//     DatabaseConfig.info(req.params.item_number, (err, data) => {
+//         if (err) {
+//             res.status(500).send('Unable to retrieve item information. Database error occurred');
+//         } else {
+//             console.log(`Fetched info for item: ${req.params.item_number}`);
+//             res.json(data);
+//         }
+//     });
+// });
+
+
 app.get('/info/:item_number', (req, res) => {
     DatabaseConfig.info(req.params.item_number, (err, data) => {
         if (err) {
-            res.status(500).send('Unable to retrieve item information. Database error occurred');
+            res.status(500).json({ error: "Database error occurred" }); // Ensure JSON response
         } else {
-            console.log(`Fetched info for item: ${req.params.item_number}`);
-            res.json(data);
+            if (data.length === 0) {
+                res.status(404).json({ error: "Item not found" }); // Handle missing item
+            } else {
+                res.json(data[0]); // Return the first (and only) item as an object
+            }
         }
     });
 });
-
 // Update stock for an item
 app.put('/update/:item_number', (req, res) => {
     const stock = req.body.Stock;
