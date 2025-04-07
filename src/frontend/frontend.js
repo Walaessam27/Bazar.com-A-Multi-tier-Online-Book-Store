@@ -5,7 +5,7 @@ const app = express();
 const port = 3000;
 
 app.get('/search/:topic', (req, res) => {
-    http.get('http://localhost:4000/search/' + req.params.topic, (response) => {
+    http.get('http://catalog:4000/search/' + req.params.topic, (response) => {
         let data = '';
         response.on("data", chunk => data += chunk);
         response.on("end", () => {
@@ -25,7 +25,7 @@ app.get('/search/:topic', (req, res) => {
 });
 
 app.get('/info/:item_number', (req, res) => {
-    http.get('http://localhost:4000/info/' + req.params.item_number, (response) => {
+    http.get('http://catalog:4000/info/' + req.params.item_number, (response) => {
         let data = '';
         response.on("data", chunk => data += chunk);
         response.on("end", () => {
@@ -46,7 +46,7 @@ app.get('/info/:item_number', (req, res) => {
 
 app.post('/purchase/:item_number', async (req, res) => {
     try {
-        const response = await axios.post(`http://localhost:5000/purchase/${req.params.item_number}`);
+        const response = await axios.post(`http://order:5000/purchase/${req.params.item_number}`);
         console.log('Ordered successfully');
         console.log(response.data);
         res.json(response.data);
