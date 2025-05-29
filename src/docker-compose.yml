@@ -1,33 +1,66 @@
+version: '3.8'
 
 services:
-  catalog:
+  catalog1:
     build: ./catalog
-    ports:
-      - "4000:4000"
+    environment:
+      DATABASE_FILENAME: "data_c1.db" # سيُستخدم هذا الاسم داخل مجلد /app/db في الحاوية
+      INSTANCE_NAME: "catalog1"
     volumes:
-      - ./catalog/db:/app/db 
+      - ./catalog/db_c1:/app/db # ربط مجلد خاص بالنسخة 1 من الكتالوج على الهوست
     networks:
       - bazar-network
 
-  order:
-    build: ./order
-    ports:
-      - "5000:5000"
+  catalog2:
+    build: ./catalog
+    environment:
+      DATABASE_FILENAME: "data_c2.db"
+      INSTANCE_NAME: "catalog2"
     volumes:
-      - ./order/db:/app/db 
-    depends_on:
-      - catalog
+      - ./catalog/db_c2:/app/db # ربط مجلد خاص بالنسخة 2 من الكتالوج على الهوست
     networks:
       - bazar-network
+
+  order1:
+    build: ./order
+    environment:
+      DATABASE_FILENAME: "data_o1.db"
+      INSTANCE_NAME: "order1"
+    volumes:
+      - ./order/db_o1:/app/db # ربط مجلد خاص بالنسخة 1 من الطلبات على الهوست
+    networks:
+      - bazar-network
+    depends_on:
+      - catalog1
+      - catalog2
+
+  order2:
+    build: ./order
+    environment:
+      DATABASE_FILENAME: "data_o2.db"
+      INSTANCE_NAME: "order2"
+    volumes:
+      - ./order/db_o2:/app/db # ربط مجلد خاص بالنسخة 2 من الطلبات على الهوست
+    networks:
+      - bazar-network
+    depends_on:
+      - catalog1
+      - catalog2
 
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
-    depends_on:
-      - order
     networks:
       - bazar-network
+    depends_on:
+      - catalog1
+      - catalog2
+      - order1
+      - order2
+    environment:
+      CATALOG_REPLICAS_URLS: "http://catalog1:4000,http://catalog2:4000"
+      ORDER_REPLICAS_URLS: "http://order1:5000,http://order2:5000"
 
 networks:
   bazar-network:
