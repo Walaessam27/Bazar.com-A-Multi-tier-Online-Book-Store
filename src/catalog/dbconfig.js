@@ -81,7 +81,7 @@ function initializeDatabase() {
 //  as they operate on the 'db' object which is now correctly initialized per instance)
 
 function searchTopic(topic, callback) {
-    const sql = `SELECT * FROM catalog where Topic = ?`;
+    const sql = `SELECT * FROM catalog where Topic = ? COLLATE NOCASE`;
     db.all(sql, [topic], (err, rows) => {
         if (err) {
             console.error(`❌ SQL Error in searchTopic() for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
