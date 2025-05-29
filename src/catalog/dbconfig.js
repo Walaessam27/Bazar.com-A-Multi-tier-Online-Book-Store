@@ -1,88 +1,123 @@
 // catalog_server/dbconfig.js
 
-// import Sqlite3 module
 const sqlite3 = require('sqlite3').verbose();
-// create a new Sqlite instance with read-write mode
-
 const path = require('path');
-const dbPath = path.join(__dirname, 'db', 'data.db'); // new subdirectory
-console.log("🧭 Using database at path:", dbPath);
+
+// --- MODIFIED: Determine database path based on environment variable ---
+const databaseFilename = process.env.DATABASE_FILENAME || 'default_catalog_data.db'; // Fallback name
+const dbPath = path.join('/app/db', databaseFilename); // Path inside the container, linked by volume
+// 
+
+console.log(`🧭 Catalog instance (${process.env.INSTANCE_NAME || 'unknown'}) using database at path: ${dbPath}`);
 
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
-        return console.error("❌ Failed to open DB:", err.message);
+        console.error(`❌ Failed to open/create DB for ${process.env.INSTANCE_NAME || 'unknown'} at ${dbPath}:`, err.message);
+        // Consider exiting if DB connection fails critically
+        process.exit(1); 
     }
-    console.log("✅ Connected to the SQLite database.");
+    console.log(`✅ Connected to SQLite database for ${process.env.INSTANCE_NAME || 'unknown'} at ${dbPath}`);
+    
+    // Call table creation and initial data population here if needed for each instance
+    initializeDatabase(); 
 });
 
-let sql; // Not strictly necessary to declare it here if defined in each function
+// --- NEW: Function to initialize database (create table and populate initial data) ---
+function initializeDatabase() {
+    db.serialize(() => { // Use serialize to run commands sequentially
+        // Create catalog table
+        const createTableSql = `CREATE TABLE IF NOT EXISTS catalog(
+                                ISBN INTEGER PRIMARY KEY,
+                                Title TEXT,
+                                Cost INTEGER, 
+                                Topic TEXT,
+                                Stock INTEGER
+                              )`;
+        db.run(createTableSql, (err) => {
+            if (err) {
+                return console.error(`❌ Error creating catalog table for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
+            }
+            console.log(`📖 Catalog table checked/created for ${process.env.INSTANCE_NAME || 'unknown'}.`);
 
-//function to create catalog table (Assuming this is called elsewhere if needed)
-function createCatalogTable() {
-    sql = `CREATE TABLE IF NOT EXISTS catalog(ISBN INTEGER PRIMARY KEY,Title TEXT,Cost INTEGER,Topic TEXT,Stock INTEGER)`; // Added data types
-    db.run(sql, (err) => {
-        if (err) return console.error("❌ Error creating catalog table:", err.message);
-        console.log("📖 Catalog table checked/created.");
+            // Populate initial data only if the table is empty (e.g., on first run for this DB file)
+            // This is a simple check; more robust checks might be needed for complex scenarios.
+            db.get("SELECT COUNT(*) as count FROM catalog", (err, row) => {
+                if (err) {
+                    return console.error(`❌ Error checking catalog table count for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
+                }
+                if (row && row.count === 0) {
+                    console.log(`📚 Populating initial book data for ${process.env.INSTANCE_NAME || 'unknown'}...`);
+                    const initialBooks = [
+                        // ISBN, Title, Cost, Topic, Stock
+                        { isbn: 1, title: "How to get a good grade in DOS in 40 minutes a day", cost: 25, topic: "distributed systems", stock: 10 },
+                        { isbn: 2, title: "RPCs for Noobs", cost: 30, topic: "distributed systems", stock: 5 },
+                        { isbn: 3, title: "Xen and the Art of Surviving Undergraduate School", cost: 35, topic: "undergraduate school", stock: 12 },
+                        { isbn: 4, title: "Cooking for the Impatient Undergrad", cost: 20, topic: "undergraduate school", stock: 7 },
+                        // New books from Lab 2 requirements
+                        { isbn: 5, title: "How to finish Project 3 on time", cost: 22, topic: "undergraduate school", stock: 8 },
+                        { isbn: 6, title: "Why theory classes are so hard.", cost: 18, topic: "undergraduate school", stock: 15 },
+                        { isbn: 7, title: "Spring in the Pioneer Valley", cost: 28, topic: "undergraduate school", stock: 20 }
+                    ];
+                    
+                    const insertSql = `INSERT INTO catalog (ISBN, Title, Cost, Topic, Stock) VALUES (?, ?, ?, ?, ?)`;
+                    initialBooks.forEach(book => {
+                        db.run(insertSql, [book.isbn, book.title, book.cost, book.topic, book.stock], (insertErr) => {
+                            if (insertErr) {
+                                console.error(`❌ Error inserting book (ISBN: ${book.isbn}) for ${process.env.INSTANCE_NAME || 'unknown'}:`, insertErr.message);
+                            }
+                        });
+                    });
+                    console.log(`📚 Finished populating initial book data for ${process.env.INSTANCE_NAME || 'unknown'}.`);
+                } else {
+                    console.log(`📖 Catalog table for ${process.env.INSTANCE_NAME || 'unknown'} already contains data or error checking count.`);
+                }
+            });
+        });
     });
 }
+// ---------------------------------------------------------------------------------
 
-//function to insert data into the catalog table (Assuming this is for initial setup)
-function insertIntoCatalog(title, cost, topic, stock) {
-    sql = `INSERT INTO catalog (Title,Cost,Topic,Stock) VALUES(?,?,?,?)`;
-    db.run(sql, [title, cost, topic, stock], (err) => {
-        if (err)
-            return console.error("❌ Error inserting into catalog:", err.message);
-        // console.log(`📗 Inserted: ${title}`); // Optional log
-    });
-}
+// (Your existing functions: searchTopic, info, updateStock remain largely the same,
+//  as they operate on the 'db' object which is now correctly initialized per instance)
 
-//function to search for item
 function searchTopic(topic, callback) {
-    sql = `SELECT * FROM catalog where Topic = ?`;
-    // Removed redundant db.all call
+    const sql = `SELECT * FROM catalog where Topic = ?`;
     db.all(sql, [topic], (err, rows) => {
         if (err) {
-            console.error("❌ SQL Error in searchTopic():", err.message);
+            console.error(`❌ SQL Error in searchTopic() for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
             return callback(err, null);
         }
         callback(null, rows);
     });
 }
 
-//function to retrieve info about an item (MODIFIED)
 function info(ISBN, callback) {
     const sql = `SELECT * FROM catalog WHERE ISBN = ?`;
-    db.get(sql, [ISBN], (err, singleRow) => { // Changed to db.get
+    db.get(sql, [ISBN], (err, singleRow) => {
         if (err) {
-            console.error("❌ SQL Error in info():", err.message);
+            console.error(`❌ SQL Error in info() for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
             return callback(err, null);
         }
-        // singleRow will be the book object if found, or undefined if not
-        // console.log("🔎 Query Result for ISBN", ISBN, ":", singleRow); // Log can be verbose, optional
         callback(null, singleRow);
     });
 }
 
-//function to update the stock of an item (MODIFIED)
 function updateStock(stock, ISBN, callback) {
     const sql = `UPDATE catalog SET Stock = ? WHERE ISBN = ?`;
-    // Using 'function' to access 'this.changes'
     db.run(sql, [stock, ISBN], function (err) {
         if (err) {
-            console.error("❌ SQL Error in updateStock():", err.message);
-            return callback(err, null); // Pass null for changes on error
+            console.error(`❌ SQL Error in updateStock() for ${process.env.INSTANCE_NAME || 'unknown'}:`, err.message);
+            return callback(err, null);
         }
-        // console.log(`🔄 Stock updated for ISBN ${ISBN}. Rows affected: ${this.changes}`); // Optional log
-        callback(null, this.changes); // Pass the number of rows affected
+        callback(null, this.changes);
     });
 }
 
 module.exports = {
-    createCatalogTable, // Ensure this is called somewhere if you need to create table on startup
-    insertIntoCatalog, // Ensure this is used for initial data if needed
+    // We don't need to export createCatalogTable and insertIntoCatalog separately
+    // if initialization is handled within this file.
     searchTopic,
     info,
     updateStock,
-    // Optional: export db if other parts of your app need direct access, but usually not needed.
-    // db 
+    // db // Usually not good to export db directly, encapsulate operations
 };
