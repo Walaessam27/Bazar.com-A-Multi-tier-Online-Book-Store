@@ -1,98 +1,127 @@
+// order_server/app.js
 const express = require('express');
-const http = require('http');
+// const http = require('http'); // لم نعد بحاجة إليه
 const axios = require('axios');
 const sqlite3 = require('sqlite3').verbose();
 
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'db','dataorder.db'); 
-const db = new sqlite3.Database(dbPath);
-const app = express();
-const port = 5000;
-
-// Create "order" table if it doesn't exist
-const createOrderTable = `
-  CREATE TABLE IF NOT EXISTS "order" (
-    order_number INTEGER PRIMARY KEY,
-    item_number
-  )
-`;
-
-db.run(createOrderTable, (err) => {
+const dbPath = path.join(__dirname, 'db', 'dataorder.db');
+const db = new sqlite3.Database(dbPath, (err) => { 
     if (err) {
-        console.error('Table creation failed:', err.message);
-    } else {
-        console.log('Order table ready.');
+        console.error('Failed to open/create order database:', err.message);
+        process.exit(1); // Exit if DB cannot be opened
     }
 });
 
-// Handle item purchase
-app.post('/purchase/:item_number', (req, res) => {
-    const itemNo = req.params.item_number;
+const app = express();
+const port = 5000;
 
-    // Insert order into the database
-    const insertOrder = `INSERT INTO "order" (item_number) VALUES (?)`;
-    db.run(insertOrder, [itemNo], (err) => {
+const FRONTEND_SERVICE_URL = process.env.FRONTEND_SERVICE_URL || 'http://frontend:3000';
+
+const createOrderTable = `
+  CREATE TABLE IF NOT EXISTS "order" (
+    order_number INTEGER PRIMARY KEY AUTOINCREMENT, -- Added AUTOINCREMENT for clarity
+    item_number TEXT NOT NULL -- It's good practice to specify data types and NOT NULL if applicable
+  )
+`;
+
+db.serialize(() => { 
+    db.run(createOrderTable, (err) => {
         if (err) {
-            console.error('Failed to insert order:', err.message);
+            console.error('Order table creation failed:', err.message);
+            process.exit(1); 
         } else {
-            console.log(`Order for item ${itemNo} recorded.`);
+            console.log('Order table ready.');
         }
-    });
-
-    // Display all orders
-    const getAllOrders = `SELECT * FROM "order"`;
-    db.all(getAllOrders, [], (err, rows) => {
-        if (err) {
-            console.error('Error fetching orders:', err.message);
-        } else {
-            console.log('Current orders in table:');
-            rows.forEach((row) => console.log(row));
-        }
-    });
-
-    // Fetch item details from catalog server
-    http.get(`http://catalog:4000/info/${itemNo}`, (catalogRes) => {
-        let data = '';
-
-        catalogRes.on('data', (chunk) => {
-            data += chunk;
-        });
-
-        catalogRes.on('end', () => {
-            try {
-                const item = JSON.parse(data)[0];
-
-                if (item.Stock > 0) {
-                    const newStock = item.Stock - 1;
-                    const payload = { Stock: newStock };
-
-                    axios.put(`http://catalog:4000/update/${itemNo}`, payload)
-                        .then(() => {
-                            console.log(`Stock updated for item ${itemNo}.`);
-                            res.json({ message: 'Item purchased successfully.' });
-                        })
-                        .catch((err) => {
-                            console.error('Stock update failed:', err.message);
-                            res.status(500).json({ message: 'Stock update failed.' });
-                        });
-
-                } else {
-                    console.log(`Item ${itemNo} is out of stock.`);
-                    res.json({ message: 'Item currently unavailable.' });
-                }
-            } catch (parseErr) {
-                console.error('Failed to parse catalog response:', parseErr.message);
-                res.status(500).json({ message: 'Invalid data from catalog.' });
-            }
-        });
-    }).on('error', (err) => {
-        console.error('Catalog service unreachable:', err.message);
-        res.status(500).json({ message: 'Failed to fetch item details.' });
     });
 });
 
-// Start the order server
+
+app.post('/purchase/:item_number', async (req, res) => {
+    const itemNoStr = req.params.item_number; 
+    const itemNo = parseInt(itemNoStr, 10); // For cache invalidation 
+
+    if (isNaN(itemNo)) {
+        return res.status(400).json({ message: `Invalid item number format: ${itemNoStr}` });
+    }
+
+    const catalogInfoUrl = `http://catalog:4000/info/${itemNoStr}`; 
+    const catalogUpdateUrl = `http://catalog:4000/update/${itemNoStr}`;
+
+    try {
+        // 1. التحقق من معلومات المنتج والمخزون من الكتالوج أولاً
+        let catalogResponse;
+        try {
+            catalogResponse = await axios.get(catalogInfoUrl);
+        } catch (err) {
+            console.error(`Error fetching item ${itemNoStr} info from catalog:`, err.message);
+            if (err.response && err.response.status === 404) {
+                return res.status(404).json({ message: `Item ${itemNoStr} not found in catalog.` });
+            }
+            return res.status(503).json({ message: 'Catalog service unavailable or error occurred.' });
+        }
+
+        const item = catalogResponse.data;
+
+        if (!item || typeof item.Stock === 'undefined') {
+            console.error(`Invalid data received from catalog for item ${itemNoStr}:`, item);
+            return res.status(500).json({ message: 'Invalid data received from catalog.' });
+        }
+
+        // 2. التحقق مما إذا كان المنتج متوفرًا
+        if (item.Stock > 0) {
+            const newStock = item.Stock - 1;
+            const payload = { Stock: newStock };
+
+            // 3. تحديث المخزون في الكتالوج
+            try {
+                await axios.put(catalogUpdateUrl, payload);
+                console.log(`Stock updated for item ${itemNoStr} to ${newStock}.`);
+            } catch (updateErr) {
+                console.error(`Stock update failed for item ${itemNoStr} in catalog:`, updateErr.message);
+                return res.status(500).json({ message: 'Failed to update stock in catalog.' });
+            }
+
+            const insertOrder = `INSERT INTO "order" (item_number) VALUES (?)`;
+            db.run(insertOrder, [itemNoStr], function (err) { // itemNoStr or itemNo, be consistent with table schema
+                if (err) {
+                    console.error('Failed to insert order into database:', err.message);
+                    return res.status(500).json({ message: 'Order recording failed after stock update.' });
+                }
+                const orderNumber = this.lastID;
+                console.log(`Order for item ${itemNoStr} recorded. Order number: ${orderNumber}`);
+
+                axios.post(`${FRONTEND_SERVICE_URL}/cache/invalidate/${itemNo}`)
+                    .then(invalidationResponse => {
+                        console.log(`Cache invalidation request for item ${itemNo} sent: ${invalidationResponse.data.message}`);
+                    })
+                    .catch(invalidationError => {
+           
+                        console.error(`Error sending cache invalidation for item ${itemNo}:`, 
+                                      invalidationError.response ? invalidationError.response.data : invalidationError.message);
+                    });
+
+                return res.status(200).json({
+                    message: 'Item purchased successfully.',
+                    order_number: orderNumber,
+                    item_number: itemNoStr, 
+                    new_stock: newStock    
+                });
+            });
+
+        } else {
+            console.log(`Item ${itemNoStr} is out of stock (Stock: ${item.Stock}).`);
+            return res.status(409).json({ message: `Item ${itemNoStr} is currently out of stock.` });
+        }
+
+    } catch (generalError) {
+        console.error(`Unexpected error during purchase of item ${itemNoStr}:`, generalError.message);
+        res.status(500).json({ message: 'An unexpected error occurred during purchase.' });
+    }
+});
+
+
 app.listen(port, () => {
     console.log(`Order service is live on port ${port}`);
 });

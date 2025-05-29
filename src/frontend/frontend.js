@@ -6,7 +6,8 @@ const port = 3000;
 
 // --- NEW: Initialize an in-memory cache ---
 const cache = {};
-// ------------------------------------------
+const FRONTEND_SELF_URL_INTERNAL = 'http://frontend:3000'; 
+
 const CATALOG_SERVICE_URL = 'http://catalog:4000';
 const ORDER_SERVICE_URL = 'http://order:5000';
 
@@ -82,6 +83,29 @@ app.post('/purchase/:item_number', async (req, res) => {
         }
     }
 });
+
+
+
+app.post('/cache/invalidate/:item_number', (req, res) => {
+    const itemNumberToInvalidate = parseInt(req.params.item_number, 10);
+
+    if (isNaN(itemNumberToInvalidate)) {
+        return res.status(400).json({ error: 'Invalid item number format for cache invalidation.' });
+    }
+
+    if (cache[itemNumberToInvalidate]) {
+        delete cache[itemNumberToInvalidate];
+        console.log(`Cache invalidated for item ${itemNumberToInvalidate} by external request.`);
+        return res.status(200).json({ message: `Cache for item ${itemNumberToInvalidate} invalidated successfully.` });
+    } else {
+        console.log(`Item ${itemNumberToInvalidate} not found in cache for invalidation.`);
+        // ليس خطأ بالضرورة إذا لم يكن العنصر في الكاش أصلاً
+        return res.status(200).json({ message: `Item ${itemNumberToInvalidate} was not in cache.` });
+    }
+});
+
+
+
 
 app.listen(port, () => {
     console.log(`Front end server is running at http://localhost:${port}`); // رسالتك الأصلية
