@@ -1,12 +1,13 @@
-
 services:
   catalog1:
     build: ./catalog
     environment:
-      DATABASE_FILENAME: "data_c1.db" # سيُستخدم هذا الاسم داخل مجلد /app/db في الحاوية
+      DATABASE_FILENAME: "data_c1.db"
       INSTANCE_NAME: "catalog1"
+      FRONTEND_SERVICE_URL: "http://frontend:3000" # <--- تمت إضافته
+      OTHER_CATALOG_REPLICAS_URLS: "http://catalog2:4000" # <--- تمت إضافته
     volumes:
-      - ./catalog/db_c1:/app/db # ربط مجلد خاص بالنسخة 1 من الكتالوج على الهوست
+      - ./catalog/db_c1:/app/db
     networks:
       - bazar-network
 
@@ -15,8 +16,10 @@ services:
     environment:
       DATABASE_FILENAME: "data_c2.db"
       INSTANCE_NAME: "catalog2"
+      FRONTEND_SERVICE_URL: "http://frontend:3000" # <--- تمت إضافته
+      OTHER_CATALOG_REPLICAS_URLS: "http://catalog1:4000" # <--- تمت إضافته
     volumes:
-      - ./catalog/db_c2:/app/db # ربط مجلد خاص بالنسخة 2 من الكتالوج على الهوست
+      - ./catalog/db_c2:/app/db
     networks:
       - bazar-network
 
@@ -25,8 +28,10 @@ services:
     environment:
       DATABASE_FILENAME: "data_o1.db"
       INSTANCE_NAME: "order1"
+      # متغير البيئة لـ order server إذا كان سيقرأ عناوين الكتالوج من هنا
+      CATALOG_REPLICAS_URLS_FOR_ORDER: "http://catalog1:4000,http://catalog2:4000" # <--- تمت إضافته
     volumes:
-      - ./order/db_o1:/app/db # ربط مجلد خاص بالنسخة 1 من الطلبات على الهوست
+      - ./order/db_o1:/app/db
     networks:
       - bazar-network
     depends_on:
@@ -38,8 +43,9 @@ services:
     environment:
       DATABASE_FILENAME: "data_o2.db"
       INSTANCE_NAME: "order2"
+      CATALOG_REPLICAS_URLS_FOR_ORDER: "http://catalog1:4000,http://catalog2:4000" # <--- تمت إضافته
     volumes:
-      - ./order/db_o2:/app/db # ربط مجلد خاص بالنسخة 2 من الطلبات على الهوست
+      - ./order/db_o2:/app/db
     networks:
       - bazar-network
     depends_on:
@@ -60,6 +66,8 @@ services:
     environment:
       CATALOG_REPLICAS_URLS: "http://catalog1:4000,http://catalog2:4000"
       ORDER_REPLICAS_URLS: "http://order1:5000,http://order2:5000"
+      # FRONTEND_SERVICE_URL لم نعد بحاجة إليه هنا لأن frontend لا يرسل طلبات لنفسه
+      # ولكن order_server و catalog_server يحتاجان لعنوان frontend لإلغاء الكاش
 
 networks:
   bazar-network:
