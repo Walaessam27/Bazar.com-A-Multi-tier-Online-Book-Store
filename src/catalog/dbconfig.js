@@ -75,10 +75,6 @@ function initializeDatabase() {
         });
     });
 }
-// ---------------------------------------------------------------------------------
-
-// (Your existing functions: searchTopic, info, updateStock remain largely the same,
-//  as they operate on the 'db' object which is now correctly initialized per instance)
 
 function searchTopic(topic, callback) {
     const sql = `SELECT * FROM catalog where Topic = ? COLLATE NOCASE`;
