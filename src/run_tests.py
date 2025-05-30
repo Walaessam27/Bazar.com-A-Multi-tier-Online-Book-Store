@@ -151,17 +151,7 @@ if __name__ == "__main__":
     print("===== Starting Performance Tests =====")
     print(f"Targeting Frontend at: {BASE_URL_FRONTEND}")
 
-    # تأكدي من أن الخدمات تعمل قبل تشغيل السكربت
-    # وأن الكتب المستخدمة للاختبار موجودة ولديها مخزون (خاصة لاختبار الشراء)
-
-    # 1. متوسط زمن استجابة INFO
-    # لقياس "بدون كاش" بشكل أفضل، يمكنكِ إما:
-    #    أ) تعطيل الكاش في الواجهة الأمامية مؤقتًا وتشغيل measure_average_info_time.
-    #    ب) أو، التأكد من أن كل طلب في measure_average_info_time هو لـ item_id مختلف لم يتم طلبه من قبل.
-    # الآن، measure_average_info_time سيظهر سلوكًا مختلطًا إذا كان الكاش مفعلًا.
-    # لتقدير "بدون كاش"، يمكننا أخذ متوسط أول طلب لكل عنصر في تجربة الكاش.
     
-    # دعنا نقيس أداء الكاش أولاً
     print("\n\n======== Testing INFO requests with Cache ENABLED in Frontend ========")
     # "تسخين" الكاش أولاً (نرسل طلبات لضمان أن العناصر في الكاش للطلبات اللاحقة)
     measure_average_info_time(BOOK_IDS_FOR_INFO_TEST, num_requests=5, cache_priming_requests=NUM_REQUESTS_INFO // 2) # تسخين بنصف عدد الطلبات
@@ -169,23 +159,43 @@ if __name__ == "__main__":
     info_times_with_cache = measure_average_info_time(BOOK_IDS_FOR_INFO_TEST, num_requests=NUM_REQUESTS_INFO)
 
 
-    # لقياس "بدون كاش":
-    # الخيار 1: قومي بتعليق (comment out) منطق الكاش في frontend_server/app.js، أعيدي بناء الواجهة الأمامية، ثم شغلي:
-    # print("\n\n======== Testing INFO requests with Cache DISABLED in Frontend (Manual Change Required) ========")
-    # info_times_without_cache_disabled = measure_average_info_time(BOOK_IDS_FOR_INFO_TEST, num_requests=NUM_REQUESTS_INFO)
-    
-    # الخيار 2: محاكاة miss عن طريق طلب عناصر مختلفة دائمًا (يتطلب قائمة كبيرة من العناصر أو تعديل للدالة)
-    # أو استخدام نتائج "latency_miss1" و "latency_miss2" من experiment_cache_behavior كأمثلة لـ cache miss.
-
     # 2. متوسط زمن استجابة PURCHASE
     print("\n\n======== Testing PURCHASE requests ========")
-    # تأكدي أن BOOK_ID_FOR_PURCHASE_TEST لديه مخزون كافٍ لـ NUM_REQUESTS_PURCHASE
-    # أو قومي بإعادة تهيئة قاعدة البيانات بين مجموعات اختبار الشراء الكبيرة
-    purchase_times = measure_average_purchase_time(BOOK_ID_FOR_PURCHASE_TEST, NUM_REQUESTS_PURCHASE)
+    # استخدمي منتجًا بمخزون كبير، مثلاً الكتاب 7 كان لديه 20
+    # تأكدي من إعادة تهيئة المخزون إذا لزم الأمر
+    BOOK_ID_FOR_PURCHASE_TEST_SERIES = 7 
+    NUM_SUCCESSFUL_PURCHASES_TARGET = 5 # حاولي إجراء 5 عمليات شراء ناجحة
     
+    try:
+        print(f"Checking stock for purchase test item {BOOK_ID_FOR_PURCHASE_TEST_SERIES}...")
+        _, initial_data = send_request_and_measure_time("GET", f"{BASE_URL_FRONTEND}/info/{BOOK_ID_FOR_PURCHASE_TEST_SERIES}")
+        if initial_data:
+            print(f"Initial stock for item {BOOK_ID_FOR_PURCHASE_TEST_SERIES}: {initial_data.get('Stock')}")
+            if initial_data.get('Stock', 0) < NUM_SUCCESSFUL_PURCHASES_TARGET:
+                print(f"WARNING: Item {BOOK_ID_FOR_PURCHASE_TEST_SERIES} has insufficient stock ({initial_data.get('Stock')}) for {NUM_SUCCESSFUL_PURCHASES_TARGET} purchases.")
+                print("Consider resetting DB or choosing an item with more stock.")
+    except Exception as e:
+        print(f"Could not check initial stock for item {BOOK_ID_FOR_PURCHASE_TEST_SERIES}: {e}")
+
+    purchase_times = measure_average_purchase_time(BOOK_ID_FOR_PURCHASE_TEST_SERIES, NUM_SUCCESSFUL_PURCHASES_TARGET)
+    
+
     # 3. تجربة سلوك الكاش وإلغاء الصلاحية
     print("\n\n======== Cache Invalidation Behavior Experiment ========")
-    # تأكدي أن هذا الكتاب لديه مخزون >= 1
-    experiment_cache_behavior(BOOK_ID_FOR_PURCHASE_TEST if BOOK_ID_FOR_PURCHASE_TEST != 1 else 3) # استخدمي كتابًا مختلفًا إذا كان الأول قد نفد مخزونه
+    # استخدمي منتجًا آخر بمخزون جيد (غير المنتج الذي استهلكتِ مخزونه في الاختبار السابق)
+    # مثلاً، الكتاب 6 كان لديه مخزون 15
+    BOOK_ID_FOR_CACHE_EXPERIMENT = 6
+    try:
+        print(f"Checking stock for cache experiment item {BOOK_ID_FOR_CACHE_EXPERIMENT}...")
+        _, initial_data_cache_exp = send_request_and_measure_time("GET", f"{BASE_URL_FRONTEND}/info/{BOOK_ID_FOR_CACHE_EXPERIMENT}")
+        if initial_data_cache_exp:
+            print(f"Initial stock for item {BOOK_ID_FOR_CACHE_EXPERIMENT}: {initial_data_cache_exp.get('Stock')}")
+            if initial_data_cache_exp.get('Stock', 0) < 1:
+                print(f"ERROR: Item {BOOK_ID_FOR_CACHE_EXPERIMENT} is out of stock. Cache invalidation experiment cannot run correctly.")
+            else:
+                experiment_cache_behavior(BOOK_ID_FOR_CACHE_EXPERIMENT)
+    except Exception as e:
+        print(f"Could not check initial stock for cache experiment item {BOOK_ID_FOR_CACHE_EXPERIMENT}: {e}")
+
 
     print("\n===== Performance Tests Finished =====")
