@@ -1,16 +1,15 @@
 import requests
 import time
 import statistics
-import random # سنستخدمه لاختيار أرقام كتب عشوائية
+import random 
 
 # --- الإعدادات الأساسية ---
-BASE_URL_FRONTEND = "http://localhost:3000"  # عنوان الواجهة الأمامية
-NUM_REQUESTS_INFO = 30  # عدد طلبات info للاختبار
-NUM_REQUESTS_PURCHASE = 10 # عدد طلبات purchase للاختبار
-BOOK_IDS_FOR_INFO_TEST = [1, 2, 3, 4, 5, 6, 7] # أرقام كتب موجودة لاختبار info
-BOOK_ID_FOR_PURCHASE_TEST = 2 # رقم كتاب لديه مخزون كافٍ لاختبار الشراء
+BASE_URL_FRONTEND = "http://localhost:3000" 
+NUM_REQUESTS_INFO = 30  
+NUM_REQUESTS_PURCHASE = 10 
+BOOK_IDS_FOR_INFO_TEST = [1, 2, 3, 4, 5, 6, 7] 
+BOOK_ID_FOR_PURCHASE_TEST = 2 
 
-# --- دوال مساعدة ---
 def send_request_and_measure_time(method, url, payload=None, headers=None):
     """يرسل طلب HTTP ويقيس زمن الاستجابة بالمللي ثانية."""
     try:
@@ -26,30 +25,27 @@ def send_request_and_measure_time(method, url, payload=None, headers=None):
         end_time = time.perf_counter()
         response_time_ms = (end_time - start_time) * 1000
         
-        # طباعة معلومات بسيطة عن الطلب
-        # print(f"{method} {url} - Status: {response.status_code}, Time: {response_time_ms:.2f} ms")
+        print(f"{method} {url} - Status: {response.status_code}, Time: {response_time_ms:.2f} ms")
         
-        response.raise_for_status() # سيثير خطأ إذا كانت الاستجابة 4xx أو 5xx
-        return response_time_ms, response.json() # نرجع الزمن والبيانات (إذا كانت JSON)
+        response.raise_for_status() 
+        return response_time_ms, response.json()
     
     except requests.exceptions.Timeout:
         print(f"Request TIMEOUT: {method} {url}")
         return None, None
     except requests.exceptions.HTTPError as http_err:
-        print(f"HTTP error: {http_err} for {method} {url} - Response: {http_err.response.text[:100]}") # اطبع أول 100 حرف من الخطأ
-        return None, None # أو يمكنكِ إرجاع زمن الخطأ إذا أردتِ
+        print(f"HTTP error: {http_err} for {method} {url} - Response: {http_err.response.text[:100]}")
+        return None, None
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e} for {method} {url}")
         return None, None
 
-# --- دوال التجارب ---
 
 def measure_average_info_time(book_ids, num_requests, cache_priming_requests=0):
     """يقيس متوسط زمن استجابة طلبات info."""
     response_times_info = []
     print(f"\n--- Measuring average response time for GET /info (Total {num_requests} actual measurement requests) ---")
 
-    # خطوة اختيارية: "تسخين" الكاش إذا أردنا قياس أداء الكاش hit
     if cache_priming_requests > 0 and book_ids:
         print(f"Priming cache with {cache_priming_requests} requests to item {book_ids[0]}...")
         for _ in range(cache_priming_requests):
@@ -57,16 +53,13 @@ def measure_average_info_time(book_ids, num_requests, cache_priming_requests=0):
             time.sleep(0.05) # تأخير بسيط
 
     for i in range(num_requests):
-        book_id_to_test = random.choice(book_ids) # اختيار كتاب عشوائي من القائمة
-        # إذا أردتِ اختبار cache miss دائمًا، تأكدي أن book_id_to_test يتغير ولا يُطلب مرتين
-        # أو اطلبي كتابًا لم يتم طلبه من قبل، أو ألغي صلاحية الكاش قبله.
-        # الآن، الاختيار العشوائي قد يؤدي لـ hit أو miss.
+        book_id_to_test = random.choice(book_ids)
         
         print(f"INFO Request {i+1}/{num_requests} for item {book_id_to_test}...")
         latency, _ = send_request_and_measure_time("GET", f"{BASE_URL_FRONTEND}/info/{book_id_to_test}")
         if latency is not None:
             response_times_info.append(latency)
-        time.sleep(0.1) # تأخير بسيط بين الطلبات
+        time.sleep(0.1)
 
     if response_times_info:
         avg_time = statistics.mean(response_times_info)
@@ -88,11 +81,10 @@ def measure_average_purchase_time(book_id, num_purchases):
             response_times_purchase.append(latency)
             if response_data and "message" in response_data and "successfully" in response_data["message"].lower():
                 successful_purchases +=1
-        else: # إذا فشل الطلب (timeout أو خطأ آخر)
+        else: 
             print(f"Purchase request {i+1} for item {book_id} failed to get a response time.")
-            # قد ترغب في إيقاف الاختبار إذا فشلت عمليات الشراء بشكل متكرر (مثلاً، نفاد المخزون)
-            # break 
-        time.sleep(0.2) # تأخير أكبر قليلاً لعمليات الشراء
+           
+        time.sleep(0.2) 
 
     if response_times_purchase:
         avg_time = statistics.mean(response_times_purchase)
@@ -128,7 +120,7 @@ def experiment_cache_behavior(book_id):
         return
     print(f"Result: {latency_purchase:.2f} ms, New Stock (from purchase response): {data_purchase.get('new_stock') if data_purchase else 'N/A'}")
     
-    time.sleep(0.5) # نعطي وقتًا بسيطًا لطلب الإلغاء ليصل ويُعالج
+    time.sleep(0.5) 
 
     # 4. Info request (should be a miss again)
     print("\nStep 4: GET /info after purchase (expect miss due to invalidation)")
@@ -146,25 +138,23 @@ def experiment_cache_behavior(book_id):
         print(f"Caching reduced latency by approx: {(latency_miss1 - latency_hit):.2f} ms ({( (latency_miss1 - latency_hit) / latency_miss1 * 100) if latency_miss1 > 0 else 0 :.1f}%)")
 
 
-# --- تشغيل التجارب ---
 if __name__ == "__main__":
     print("===== Starting Performance Tests =====")
     print(f"Targeting Frontend at: {BASE_URL_FRONTEND}")
 
     
     print("\n\n======== Testing INFO requests with Cache ENABLED in Frontend ========")
-    # "تسخين" الكاش أولاً (نرسل طلبات لضمان أن العناصر في الكاش للطلبات اللاحقة)
+    # اعبي الكاش 
     measure_average_info_time(BOOK_IDS_FOR_INFO_TEST, num_requests=5, cache_priming_requests=NUM_REQUESTS_INFO // 2) # تسخين بنصف عدد الطلبات
     print("\n--- Subsequent INFO requests (should be mostly cache hits) ---")
     info_times_with_cache = measure_average_info_time(BOOK_IDS_FOR_INFO_TEST, num_requests=NUM_REQUESTS_INFO)
 
 
-    # 2. متوسط زمن استجابة PURCHASE
+    # PURCHASE
     print("\n\n======== Testing PURCHASE requests ========")
-    # استخدمي منتجًا بمخزون كبير، مثلاً الكتاب 7 كان لديه 20
-    # تأكدي من إعادة تهيئة المخزون إذا لزم الأمر
+   
     BOOK_ID_FOR_PURCHASE_TEST_SERIES = 7 
-    NUM_SUCCESSFUL_PURCHASES_TARGET = 5 # حاولي إجراء 5 عمليات شراء ناجحة
+    NUM_SUCCESSFUL_PURCHASES_TARGET = 5 
     
     try:
         print(f"Checking stock for purchase test item {BOOK_ID_FOR_PURCHASE_TEST_SERIES}...")
@@ -180,10 +170,9 @@ if __name__ == "__main__":
     purchase_times = measure_average_purchase_time(BOOK_ID_FOR_PURCHASE_TEST_SERIES, NUM_SUCCESSFUL_PURCHASES_TARGET)
     
 
-    # 3. تجربة سلوك الكاش وإلغاء الصلاحية
+    #  إلغاء الصلاحية
     print("\n\n======== Cache Invalidation Behavior Experiment ========")
-    # استخدمي منتجًا آخر بمخزون جيد (غير المنتج الذي استهلكتِ مخزونه في الاختبار السابق)
-    # مثلاً، الكتاب 6 كان لديه مخزون 15
+  
     BOOK_ID_FOR_CACHE_EXPERIMENT = 6
     try:
         print(f"Checking stock for cache experiment item {BOOK_ID_FOR_CACHE_EXPERIMENT}...")

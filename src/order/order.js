@@ -6,7 +6,7 @@ const path = require('path');
 
 // --- Database Configuration ---
 const databaseFilename = process.env.DATABASE_FILENAME || 'default_order_data.db';
-const dbPath = path.join('/app/db', databaseFilename); // المسار داخل الحاوية
+const dbPath = path.join('/app/db', databaseFilename); 
 const CURRENT_ORDER_INSTANCE_NAME = process.env.INSTANCE_NAME || 'order_unknown_instance';
 
 console.log(`🧭 Order instance (${CURRENT_ORDER_INSTANCE_NAME}) using database at path: ${dbPath}`);
@@ -14,10 +14,10 @@ console.log(`🧭 Order instance (${CURRENT_ORDER_INSTANCE_NAME}) using database
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
     if (err) {
         console.error(`❌ Failed to open/create DB for ${CURRENT_ORDER_INSTANCE_NAME} at ${dbPath}:`, err.message);
-        process.exit(1); // الخروج إذا فشل الاتصال بقاعدة البيانات
+        process.exit(1); 
     }
     console.log(`✅ Connected to SQLite database for ${CURRENT_ORDER_INSTANCE_NAME} at ${dbPath}`);
-    initializeOrderDatabase(); // استدعاء دالة إنشاء الجدول
+    initializeOrderDatabase();
 });
 
 function initializeOrderDatabase() {
@@ -30,19 +30,19 @@ function initializeOrderDatabase() {
     db.run(createOrderTableSql, (err) => {
         if (err) {
             console.error(`❌ Order table creation failed for ${CURRENT_ORDER_INSTANCE_NAME}:`, err.message);
-            // يمكن التفكير في الخروج هنا أيضًا إذا فشل إنشاء الجدول بشكل حاسم
+            
         } else {
             console.log(`📦 Order table checked/created for ${CURRENT_ORDER_INSTANCE_NAME}.`);
         }
     });
 }
-// --- End Database Configuration ---
+//End Database Configuration
 
 const app = express();
 const port = 5000;
-app.use(express.json()); // إذا كنتِ سترسلين JSON body إلى خدمة الطلبات
+app.use(express.json());
 
-// --- Catalog Service Configuration for Order Service ---
+//  Catalog Service Configuration for Order Service 
 const CATALOG_REPLICA_URLS_FOR_ORDER_SVC = (process.env.CATALOG_REPLICAS_URLS_FOR_ORDER || "http://catalog1:4000,http://catalog2:4000")
                                             .split(',')
                                             .map(url => url.trim())
@@ -58,13 +58,12 @@ async function getNextCatalogReadReplicaUrl() {
     currentCatalogReadReplicaIndex = (currentCatalogReadReplicaIndex + 1) % CATALOG_REPLICA_URLS_FOR_ORDER_SVC.length;
     return url;
 }
-// --- End Catalog Service Configuration ---
+//  End Catalog Service Configuration 
 
 app.post('/purchase/:item_number', async (req, res) => {
     const itemNoStr = req.params.item_number;
-    // const itemNoInt = parseInt(itemNoStr, 10); // ليس ضروريًا إذا كانت جميع الاستدعاءات تستخدم النص
+  
 
-    // التحقق الأساسي من رقم المنتج
     if (!itemNoStr || isNaN(parseInt(itemNoStr, 10))) { // التأكد أنه يمكن تحويله لرقم
         return res.status(400).json({ message: `Invalid item number format: ${itemNoStr}` });
     }
@@ -91,13 +90,12 @@ app.post('/purchase/:item_number', async (req, res) => {
         if (item.Stock > 0) {
             const newStock = item.Stock - 1;
             const updatePayload = { Stock: newStock };
-            // قائمة نسخ الكتالوج التي يجب تحديثها (يجب أن تكون نفسها التي في CATALOG_REPLICA_URLS_FOR_ORDER_SVC)
             const catalogUpdateTargets = CATALOG_REPLICA_URLS_FOR_ORDER_SVC; 
             let allCatalogUpdatesSucceeded = true;
 
             for (const targetCatalogUrl of catalogUpdateTargets) {
                 try {
-                    // خدمة الكتالوج (مسار /update) هي المسؤولة عن مزامنتها الداخلية وإلغاء صلاحية الكاش
+                    // فس الكتالوج (مسار /update) هي المسؤولة عن مزامنتها الداخلية وإلغاء صلاحية الكاش
                     await axios.put(`${targetCatalogUrl}/update/${itemNoStr}`, updatePayload, { timeout: 4000 });
                     console.log(`[${CURRENT_ORDER_INSTANCE_NAME}] ✅ Stock update request sent to ${targetCatalogUrl} for item ${itemNoStr}.`);
                 } catch (updateErr) {
@@ -108,18 +106,16 @@ app.post('/purchase/:item_number', async (req, res) => {
             }
 
             const insertOrderSql = `INSERT INTO "order" (item_number) VALUES (?)`;
-            db.run(insertOrderSql, [itemNoStr], function (err) { // استخدام function للوصول لـ this.lastID
+            db.run(insertOrderSql, [itemNoStr], function (err) { 
                 if (err) {
                     console.error(`[${CURRENT_ORDER_INSTANCE_NAME}] ❌ Failed to insert order into DB:`, err.message);
-                    // هذا خطأ حرج. هل يجب محاولة إعادة المخزون في الكتالوج؟ (معقد)
-                    // الآن، سنرجع خطأ 500 للعميل.
+                  
                     return res.status(500).json({ message: 'Order recording failed after stock update attempt.' });
                 }
                 const orderNumber = this.lastID;
                 console.log(`[${CURRENT_ORDER_INSTANCE_NAME}] 🛍️ Order for item ${itemNoStr} recorded. Order number: ${orderNumber}`);
 
-                // --- تم إزالة إرسال طلب إلغاء صلاحية الكاش من هنا ---
-                // خدمة الكتالوج هي المسؤولة عن ذلك الآن.
+  
                 
                 const responseMessage = allCatalogUpdatesSucceeded ?
                     `Item purchased successfully. Stock update initiated on catalog replicas by ${CURRENT_ORDER_INSTANCE_NAME}.` :

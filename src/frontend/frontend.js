@@ -2,11 +2,9 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
-const port = 3000; // Port the frontend listens on
+const port = 3000; 
 
-// --- Cache Initialization ---
 const cache = {};
-// const FRONTEND_SELF_URL_INTERNAL = 'http://frontend:3000'; // Not used in this file directly
 
 const catalogReplicaUrlsString = process.env.CATALOG_REPLICAS_URLS || "http://catalog1:4000,http://catalog2:4000"; // Fallback
 const orderReplicaUrlsString = process.env.ORDER_REPLICAS_URLS || "http://order1:5000,http://order2:5000";     // Fallback
@@ -29,24 +27,20 @@ console.log("🛍️ Order Replicas:", ORDER_REPLICAS);
 let currentCatalogIndex = 0;
 let currentOrderIndex = 0;
 
-// Helper function to get the next catalog replica URL (Round Robin)
+// (Round Robin)
 function getNextCatalogUrl() {
     const url = CATALOG_REPLICAS[currentCatalogIndex];
     currentCatalogIndex = (currentCatalogIndex + 1) % CATALOG_REPLICAS.length;
-    // console.log(`Selected Catalog URL: ${url}`); // For debugging
     return url;
 }
 
-// Helper function to get the next order replica URL (Round Robin)
 function getNextOrderUrl() {
     const url = ORDER_REPLICAS[currentOrderIndex];
     currentOrderIndex = (currentOrderIndex + 1) % ORDER_REPLICAS.length;
-    // console.log(`Selected Order URL: ${url}`); // For debugging
     return url;
 }
-// --- End Load Balancer Configuration ---
 
-app.use(express.json()); // If frontend ever needs to parse JSON request bodies
+app.use(express.json()); 
 
 app.get('/search/:topic', (req, res) => {
     const topic = req.params.topic;
@@ -92,10 +86,8 @@ app.get('/info/:item_number', (req, res) => {
             .catch(error => {
                 console.error(`❌ Error fetching info for item ${itemNumber} from ${targetCatalogUrl}:`, error.message);
                 if (error.response) {
-                    // If the catalog replica returned an error (e.g., 404 Not Found)
                     res.status(error.response.status).json(error.response.data);
                 } else {
-                    // Generic error (e.g., catalog replica down)
                     res.status(503).json({ error: `Error connecting to catalog service at ${targetCatalogUrl}` });
                 }
             });
@@ -104,7 +96,6 @@ app.get('/info/:item_number', (req, res) => {
 
 app.post('/purchase/:item_number', async (req, res) => {
     const itemNumberStr = req.params.item_number;
-    // const itemNumberInt = parseInt(itemNumberStr, 10); // Not strictly needed for purchase req if order service handles it
 
     const targetOrderUrl = getNextOrderUrl(); // Get URL using Round Robin
 
@@ -112,7 +103,6 @@ app.post('/purchase/:item_number', async (req, res) => {
     try {
         const response = await axios.post(`${targetOrderUrl}/purchase/${itemNumberStr}`);
         console.log(`✅ Purchase request for item ${itemNumberStr} successful from ${targetOrderUrl}:`, response.data);
-        // Cache invalidation is handled by the order service sending a request back to /cache/invalidate
         res.json(response.data);
     } catch (error) {
         console.error(`❌ Error during purchase for item ${itemNumberStr} from ${targetOrderUrl}:`, error.message);

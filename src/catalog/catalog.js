@@ -10,15 +10,12 @@ app.use(express.json());
 
 // --- Configuration for inter-service communication ---
 const FRONTEND_SERVICE_URL = process.env.FRONTEND_SERVICE_URL || 'http://frontend:3000';
-// OTHER_CATALOG_REPLICAS_URLS سيكون سلسلة مفصولة بفاصلة من متغير البيئة
 const otherCatalogReplicasRaw = process.env.OTHER_CATALOG_REPLICAS_URLS || "";
 const OTHER_CATALOG_REPLICAS = otherCatalogReplicasRaw
                                 .split(',')
                                 .map(url => url.trim())
-                                .filter(url => url); // لإزالة أي سلاسل فارغة
-
+                                .filter(url => url); 
 const CURRENT_INSTANCE_NAME = process.env.INSTANCE_NAME || 'catalog_unknown_instance';
-// ----------------------------------------------------
 
 // Search items by topic
 app.get('/search/:topic', (req, res) => {
@@ -104,7 +101,7 @@ app.put('/update/:item_number', async (req, res) => {
                 }
             }
 
-            if (!isSyncRequest) { // إلغاء صلاحية الكاش فقط إذا كان هذا هو الطلب الأصلي (وليس طلب مزامنة)
+            if (!isSyncRequest) { // إلغاء صلاحية الكاش فقط إذا كان هذا هو الطلب الأصلي
                 console.log(`[${CURRENT_INSTANCE_NAME}] Attempting to invalidate cache for item ${itemNumber} in frontend...`);
                 try {
                     await axios.post(`${FRONTEND_SERVICE_URL}/cache/invalidate/${itemNumber}`, {}, { timeout: 3000 });
